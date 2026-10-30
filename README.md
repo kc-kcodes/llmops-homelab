@@ -12,7 +12,7 @@ This repo documents my move from DevOps / SRE / security into **AI Platform and 
 
 | Stage | Topic | Status | Proof |
 |---|---|---|---|
-| 0 | Secure dev environment (multi-account Git over SSH) | ✅ Done | [Stage 0](#stage-0--secure-dev-environment) |
+| 0 | Secure dev environment (multi-account Git over SSH) | 🟡 In progress | [Stage 0](#stage-0--secure-dev-environment) |
 | 1 | AI fundamentals + Python for ops | 🟡 In progress | [Stage 1](#stage-1--ai-fundamentals--python-for-ops) |
 | 2 | Serve a local LLM (Ollama on GPU) | ⬜ Planned | — |
 | 3 | Observability: tokens/sec, latency, GPU metrics | ⬜ Planned | — |
@@ -60,14 +60,18 @@ Host github-pro
 ```
 
 - A **repo-scoped deploy key** for an automation repo, giving access to one repository only instead of a whole account.
-- Commit identity switches by folder with `includeIf`, using GitHub noreply emails:
+- Commit identity switches by folder with `includeIf`. The personal account is the global default, and everything under the professional folder is overridden with the kc-kcodes GitHub noreply email:
 
 ```ini
-[includeIf "gitdir:~/code/personal/"]
-    path = ~/.gitconfig-personal
-[includeIf "gitdir:~/code/pro/"]
+[user]
+    name = <personal>
+    email = <personal email>
+
+# must come after [user] so it overrides it
+[includeIf "gitdir:~/ckgit-prof/"]
     path = ~/.gitconfig-pro
 
+# any kc-kcodes URL automatically uses the professional SSH key
 [url "git@github-pro:kc-kcodes/"]
     insteadOf = git@github.com:kc-kcodes/
     insteadOf = https://github.com/kc-kcodes/
@@ -78,14 +82,27 @@ Host github-pro
 ```bash
 ssh -T git@github-personal   # authenticates as the personal account
 ssh -T git@github-pro        # authenticates as kc-kcodes
-git config user.email        # inside ~/code/pro → kc-kcodes noreply address
+git config user.email        # inside a repo under ~/ckgit-prof → kc-kcodes noreply address
 ```
+
+**Checklist**
+- [x] macOS: SSH aliases, per-folder identity, URL rewrite. First commit to this repo authored as kc-kcodes
+- [x] Ubuntu lab: SSH aliases for both accounts (existing repo-scoped deploy key kept)
+- [x] Ubuntu lab: per-folder identity (`~/.gitconfig-pro`, `includeIf`, URL rewrite), same folder and file names as macOS
+- [x] Ubuntu lab: removed `credential.helper = store` (plain-text token storage) and moved owned repos from HTTPS to SSH
+- [ ] VS Code: confirm commits and pushes use the right account
+- [ ] IntelliJ: confirm commits and pushes use the right account
 
 **Lessons learned**
 - GitHub ignores the SSH `User` field for identity. It always expects `git` and identifies you **by the key**. A stray `User <name>` line only works by accident.
 - SSH uses the **first matching value** for each option. A duplicate `Host github.com` block higher in the file silently overrides a corrected one lower down.
 - `IdentitiesOnly yes` stops SSH from offering every key it can find, which is the usual cause of "pushed to the wrong account."
 - Ubuntu skips private keys with loose permissions. Use `chmod 600` on keys and config, and `700` on `~/.ssh`.
+- `includeIf "gitdir:..."` only applies **inside a git repo**, and the path needs a trailing `/`. Running `git config user.email` in the parent folder still shows the global value, and that's expected.
+- An `includeIf` placed above `[user]` gets overridden by it. Git applies settings top to bottom, so the include goes last.
+- A repo's own `.git/config` beats the global `includeIf`. If a repo has a local `user.email`, it quietly wins. Find the source with `git config --show-origin user.email` and remove it with `git config --local --unset user.email`.
+- `credential.helper = store` writes GitHub tokens to `~/.git-credentials` in plain text. Rule of thumb: repos you **push** to use SSH; repos you only **pull** from (public third-party code) can stay on HTTPS with no stored credentials.
+- Before changing anything, audit first: list every local repo's remote (`find ~ -path "*/.git/config" -exec grep -H "url =" {} \;`) so a cleanup doesn't break existing work.
 
 **Security takeaways:** least privilege (deploy keys), per-device credentials (simple revocation), no personal data in public commit history.
 
