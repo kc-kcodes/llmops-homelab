@@ -2,26 +2,17 @@
 
 Running a large language model like any other production service: deployed, monitored, secured, and tested.
 
-This repo documents my move from DevOps / SRE / security into **AI Platform and LLMOps engineering**, built one stage at a time on a home lab (Ubuntu + NVIDIA GPU) with real configs, runbooks and results.
+This repo documents my work in **AI Platform and LLMOps engineering**, built stage by stage on a home lab (Ubuntu + NVIDIA GPU) with real configs, runbooks and results. Each stage appears here only once it's complete.
 
 > **Why this repo exists:** most AI demos stop at "it answers a question." Production needs more: uptime, latency SLOs, GPU capacity, access control, audit logs, and automated checks that the *answers* are still good. That's the gap this lab works through.
 
 ---
 
-## Progress
+## Completed stages
 
-| Stage | Topic | Status | Proof |
-|---|---|---|---|
-| 0 | Secure dev environment (multi-account Git over SSH) | 🟡 In progress | [Stage 0](#stage-0--secure-dev-environment) |
-| 1 | AI fundamentals + Python for ops | 🟡 In progress | [Stage 1](#stage-1--ai-fundamentals--python-for-ops) |
-| 2 | Serve a local LLM (Ollama on GPU) | ⬜ Planned | — |
-| 3 | Observability: tokens/sec, latency, GPU metrics | ⬜ Planned | — |
-| 4 | Run the model on Kubernetes | ⬜ Planned | — |
-| 5 | Security: auth proxy, rate limits, prompt audit log | ⬜ Planned | — |
-| 6 | Evals: automated answer-quality tests in CI | ⬜ Planned | — |
-| 7 | Runbooks, architecture diagram, final write-up | ⬜ Planned | — |
-
-Legend: ✅ done · 🟡 in progress · ⬜ planned
+| Stage | Topic | Proof |
+|---|---|---|
+| 0 | Secure dev environment: multi-account Git over SSH, AI agent workflow | [Stage 0](#stage-0--secure-dev-environment) |
 
 ---
 
@@ -39,7 +30,7 @@ Legend: ✅ done · 🟡 in progress · ⬜ planned
 
 ## Stage 0 — Secure dev environment
 
-**Goal:** work with two GitHub accounts (learning and professional) from multiple machines without ever pushing to the wrong account or leaking a personal email.
+**Goal:** work with two GitHub accounts (learning and professional) from multiple machines without ever pushing to the wrong account or leaking a personal email, and run an AI coding agent safely from the IDE.
 
 **What I built**
 - One SSH key **per account, per device**. No private key is ever copied between machines. If a device is lost, I revoke only that device's keys.
@@ -77,6 +68,8 @@ Host github-pro
     insteadOf = https://github.com/kc-kcodes/
 ```
 
+- An AI coding agent (Claude Code) running on the lab server, driven from the IDE on the workstation over SSH, with manual approval for every action. Details: [docs/workflow.md](docs/workflow.md)
+
 **Verification**
 
 ```bash
@@ -85,13 +78,13 @@ ssh -T git@github-pro        # authenticates as kc-kcodes
 git config user.email        # inside a repo under ~/ckgit-prof → kc-kcodes noreply address
 ```
 
-**Checklist**
+**Done**
 - [x] macOS: SSH aliases, per-folder identity, URL rewrite. First commit to this repo authored as kc-kcodes
 - [x] Ubuntu lab: SSH aliases for both accounts (existing repo-scoped deploy key kept)
 - [x] Ubuntu lab: per-folder identity (`~/.gitconfig-pro`, `includeIf`, URL rewrite), same folder and file names as macOS
 - [x] Ubuntu lab: removed `credential.helper = store` (plain-text token storage) and moved owned repos from HTTPS to SSH
-- [ ] VS Code: confirm commits and pushes use the right account
-- [ ] IntelliJ: confirm commits and pushes use the right account
+- [x] IntelliJ (macOS): commits and pushes use system Git, so the folder identity and SSH aliases apply with no IDE-specific setup
+- [x] IntelliJ: Claude Code plugin runs the agent on the Ubuntu lab over SSH (`ssh -t ubuntulab "cd <repo> && bash -lic claude"`), in manual approval mode. First agent commit pushed from the IDE panel
 
 **Lessons learned**
 - GitHub ignores the SSH `User` field for identity. It always expects `git` and identifies you **by the key**. A stray `User <name>` line only works by accident.
@@ -102,30 +95,11 @@ git config user.email        # inside a repo under ~/ckgit-prof → kc-kcodes no
 - An `includeIf` placed above `[user]` gets overridden by it. Git applies settings top to bottom, so the include goes last.
 - A repo's own `.git/config` beats the global `includeIf`. If a repo has a local `user.email`, it quietly wins. Find the source with `git config --show-origin user.email` and remove it with `git config --local --unset user.email`.
 - `credential.helper = store` writes GitHub tokens to `~/.git-credentials` in plain text. Rule of thumb: repos you **push** to use SSH; repos you only **pull** from (public third-party code) can stay on HTTPS with no stored credentials.
-- Before changing anything, audit first: list every local repo's remote (`find ~ -path "*/.git/config" -exec grep -H "url =" {} \;`) so a cleanup doesn't break existing work.
+- An IDE has two separate GitHub paths: **Git over SSH** (commit, push, pull) and the **GitHub API login** (pull requests panel). A stale API token breaks only the second; pushes keep working.
 - Claude Code runs on the lab server; IntelliJ on the Mac pulls changes via Git.
+- Before changing anything, audit first: list every local repo's remote (`find ~ -path "*/.git/config" -exec grep -H "url =" {} \;`) so a cleanup doesn't break existing work.
 
-**Security takeaways:** least privilege (deploy keys), per-device credentials (simple revocation), no personal data in public commit history.
-
----
-
-## Stage 1 — AI fundamentals + Python for ops
-
-**Goal:** speak the vocabulary and read and modify the Python that runs AI infrastructure.
-
-- [ ] AI vocabulary with ops examples: tokens, context window, temperature, RAG, agents, MCP
-- [ ] Anthropic Academy: Claude Code course
-- [ ] freeCodeCamp Python (v9): loops and sequences
-- [ ] Ops script: service health check with retries (`for`, `while`, `break`, `continue`)
-- [ ] Ops script: log scanner (slicing, `enumerate`, `.splitlines()`)
-
-*Notes and scripts will be added here as each item is completed.*
-
----
-
-## Stages 2–7
-
-Each stage is filled in as it's completed, using the same structure: **Goal → What I built → Verification → Lessons learned**.
+**Security takeaways:** least privilege (deploy keys), per-device credentials (simple revocation), no personal data in public commit history, human approval for every AI agent action.
 
 ---
 
