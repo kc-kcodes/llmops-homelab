@@ -103,6 +103,7 @@ git config user.email        # inside a repo under ~/ckgit-prof → kc-kcodes no
 - A repo's own `.git/config` beats the global `includeIf`. If a repo has a local `user.email`, it quietly wins. Find the source with `git config --show-origin user.email` and remove it with `git config --local --unset user.email`.
 - `credential.helper = store` writes GitHub tokens to `~/.git-credentials` in plain text. Rule of thumb: repos you **push** to use SSH; repos you only **pull** from (public third-party code) can stay on HTTPS with no stored credentials.
 - Before changing anything, audit first: list every local repo's remote (`find ~ -path "*/.git/config" -exec grep -H "url =" {} \;`) so a cleanup doesn't break existing work.
+- Claude Code runs on the lab server; IntelliJ on the Mac pulls changes via Git.
 
 **Security takeaways:** least privilege (deploy keys), per-device credentials (simple revocation), no personal data in public commit history.
 
